@@ -45,6 +45,7 @@ func main() {
 
 	logf("TLS enabled on port %s with cert=%s key=%s", cfg.APIPort, cfg.SSLCert, cfg.SSLKey)
 	logf("API key protection enabled")
+	logf("node app (hard reset target): %s", cfg.AppName)
 
 	s := &server{cfg: cfg}
 	mux := http.NewServeMux()
@@ -52,6 +53,7 @@ func main() {
 	mux.HandleFunc("POST /node/update", s.handleUpdate)
 	mux.HandleFunc("POST /node/core_update", s.handleCoreUpdate)
 	mux.HandleFunc("POST /node/geofiles", s.handleGeofiles)
+	mux.HandleFunc("POST /node/hard_reset", s.handleHardReset)
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.APIPort,

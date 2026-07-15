@@ -170,3 +170,30 @@ func (s *server) handleGeofiles(w http.ResponseWriter, r *http.Request) {
 
 	s.respond(w, http.StatusOK, map[string]string{"detail": "geofiles updated successfully"})
 }
+
+func (s *server) handleHardReset(w http.ResponseWriter, r *http.Request) {
+	if !s.authenticate(w, r) {
+		return
+	}
+
+	logf("hard reset requested: restarting node %s", s.cfg.AppName)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	if stderr, code, err := runCommand(ctx, s.cfg.AppName, "restart"); err != nil {
+		logf("hard reset failed for %s (exit code: %d): %v", s.cfg.AppName, code, err)
+		if stderr != "" {
+			logf("stderr: %s", stderr)
+		}
+		detail := fmt.Sprintf("hard reset failed for %s: %v", s.cfg.AppName, err)
+		if cleaned := cleanANSI(stderr); cleaned != "" {
+			detail = fmt.Sprintf("hard reset failed for %s: %s", s.cfg.AppName, cleaned)
+		}
+		s.respond(w, http.StatusInternalServerError, map[string]string{"detail": detail})
+		return
+	}
+
+	logf("hard reset succeeded: %s restarted", s.cfg.AppName)
+	s.respond(w, http.StatusOK, map[string]string{"detail": "node restarted successfully"})
+}
