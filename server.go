@@ -116,7 +116,7 @@ func (s *server) handleCoreUpdate(w http.ResponseWriter, r *http.Request) {
 	args := []string{"core-update", "--version", payload.CoreVersion}
 	stderr, code, err := runCommand(ctx, s.cfg.AppName, args...)
 	if err != nil {
-		logf("core-update failed for version %s (exit code: %d)", payload.CoreVersion, code)
+		logf("core-update failed for version %s (exit code: %d): %v", payload.CoreVersion, code, err)
 		if stderr != "" {
 			logf("Error output: %s", stderr)
 		}
@@ -126,8 +126,8 @@ func (s *server) handleCoreUpdate(w http.ResponseWriter, r *http.Request) {
 				"detail": fmt.Sprintf("core-update failed for version %s: %s", payload.CoreVersion, cleanErr),
 			})
 		} else {
-			s.respond(w, http.StatusNotFound, map[string]string{
-				"detail": fmt.Sprintf("core-update failed for version %s. Version may not exist or network error occurred.", payload.CoreVersion),
+			s.respond(w, http.StatusInternalServerError, map[string]string{
+				"detail": fmt.Sprintf("core-update failed for version %s: %v", payload.CoreVersion, err),
 			})
 		}
 		return
