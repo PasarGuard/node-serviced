@@ -69,6 +69,7 @@ func LoadTLSCredentials(certPath, keyPath string) (*tls.Config, error) {
 	return &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
 		ClientAuth:   tls.NoClientCert,
+		MinVersion:   tls.VersionTLS12, // reject SSLv3 / TLS 1.0 / TLS 1.1
 	}, nil
 }
 
