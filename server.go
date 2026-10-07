@@ -14,7 +14,7 @@ type server struct {
 	cfg config
 }
 
-var coreVersionRegexp = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
+var coreVersionRegexp = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+$`)
 var geofileRegionRegexp = regexp.MustCompile(`^(iran|russia|china)$`)
 
 type coreUpdateRequest struct {
@@ -25,8 +25,16 @@ func (r *coreUpdateRequest) validate() error {
 	if r.CoreVersion == "" {
 		return fmt.Errorf("core_version is required")
 	}
+	// pg-node core-update understands "latest" (newest Xray release) and looks versions up by their
+	// release tag, which always has a "v" prefix; the panel accepts both "latest" and "X.Y.Z".
+	if r.CoreVersion == "latest" {
+		return nil
+	}
 	if !coreVersionRegexp.MatchString(r.CoreVersion) {
-		return fmt.Errorf("core_version must match pattern vX.X.X")
+		return fmt.Errorf("core_version must be \"latest\" or match pattern vX.X.X")
+	}
+	if !strings.HasPrefix(r.CoreVersion, "v") {
+		r.CoreVersion = "v" + r.CoreVersion
 	}
 	return nil
 }
