@@ -24,6 +24,6 @@ Minimal HTTPS control API rewritten from the original bash script. Uses only the
 ## Endpoints (all require `x-api-key`)
 - `GET /` → `{"status":"ok"}`
 - `POST /node/update` → runs `pg-node update --no-update-service`
-- `POST /node/core_update` with JSON `{"core_version":"<ver>"}` → runs `pg-node core-update --version <ver>`
+- `POST /node/core_update` with JSON `{"core_version":"<ver>"}` → runs `pg-node core-update --version <ver>`. `<ver>` is `latest` (newest Xray-core release) or `vX.Y.Z`; a bare `X.Y.Z` is sent as `vX.Y.Z`
 - `POST /node/geofiles` with JSON `{"region":"iran|russia|china"}` → runs `pg-node geofiles --<region>`
 
