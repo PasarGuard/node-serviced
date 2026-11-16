@@ -28,3 +28,21 @@ Minimal HTTPS control API rewritten from the original bash script. Uses only the
 - `POST /node/geofiles` with JSON `{"region":"iran|russia|china"}` → runs `pg-node geofiles --<region>`
 - `POST /node/hard_reset` → runs `pg-node restart` (60 s timeout)
 
+
+## TLS and private backends
+
+`TLS_ENABLED` defaults to `true` and invalid boolean values fail startup.
+Both node services use `NODE_HOST`, `SSL_CERT_FILE`, and `SSL_KEY_FILE` from the
+same environment file. A missing `NODE_HOST` binds to `0.0.0.0` with TLS.
+
+For an external TLS web server, set `TLS_ENABLED=false`; certificates are then
+unnecessary and the default bind address is `127.0.0.1`. Explicit bindings must
+be literal IPv4 loopback, `::1`, RFC1918 IPv4, or IPv6 unique-local addresses.
+IPv4-mapped IPv6 addresses are normalized. Public, wildcard, link-local,
+multicast, scoped, and malformed addresses fail startup. API-key authentication
+remains required. The panel always connects to the web server over HTTPS.
+
+Use the same frontend certificate on the node and maintenance ports when pinned.
+Do not expose private backend ports through firewall/NAT/container publishing.
+See the node repository's `docs/node-tls.md` and `examples/nginx/` for deployment
+examples, renewal behavior and rollback instructions.
