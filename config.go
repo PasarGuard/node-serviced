@@ -6,8 +6,11 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -22,12 +25,14 @@ const (
 )
 
 type config struct {
-	AppName string
-	APIPort string
-	APIKey  string
-	SSLCert string
-	SSLKey  string
-	EnvFile string
+	TLSEnabled bool
+	NodeHost   string
+	AppName    string
+	APIPort    string
+	APIKey     string
+	SSLCert    string
+	SSLKey     string
+	EnvFile    string
 }
 
 type certInfo struct {
@@ -101,8 +106,9 @@ func checkCertificate(certPath string) (*certInfo, error) {
 
 func loadConfig() (config, error) {
 	cfg := config{
-		AppName: defaultAppName,
-		APIPort: defaultAPIPort,
+		AppName:    defaultAppName,
+		TLSEnabled: true,
+		APIPort:    defaultAPIPort,
 	}
 
 	envFile, fallbackUsed := determineEnvFile()
@@ -133,6 +139,38 @@ func loadConfig() (config, error) {
 
 	if cfg.APIKey == "" {
 		return cfg, errors.New("API_KEY must be set in the env file")
+	}
+	if value, exists := os.LookupEnv("TLS_ENABLED"); exists {
+		var err error
+		cfg.TLSEnabled, err = strconv.ParseBool(value)
+		if err != nil {
+			return cfg, fmt.Errorf("invalid TLS_ENABLED %q: expected a boolean", value)
+		}
+	}
+	cfg.NodeHost = "0.0.0.0"
+	if !cfg.TLSEnabled {
+		cfg.NodeHost = "127.0.0.1"
+	}
+	if host, exists := os.LookupEnv("NODE_HOST"); exists {
+		cfg.NodeHost = strings.TrimSpace(host)
+	}
+	addr, err := netip.ParseAddr(cfg.NodeHost)
+	if !cfg.TLSEnabled {
+		if err != nil || addr.Zone() != "" {
+			return cfg, fmt.Errorf("invalid private NODE_HOST %q", cfg.NodeHost)
+		}
+		addr = addr.Unmap()
+		if !addr.IsLoopback() && !addr.IsPrivate() {
+			return cfg, fmt.Errorf("TLS_ENABLED=false requires a private NODE_HOST, got %q", cfg.NodeHost)
+		}
+		cfg.NodeHost = addr.String()
+		return cfg, nil
+	}
+	if strings.EqualFold(cfg.NodeHost, "localhost") {
+		cfg.NodeHost = "127.0.0.1"
+	} else if err != nil {
+		logf("Invalid NODE_HOST %q; using 127.0.0.1", cfg.NodeHost)
+		cfg.NodeHost = "127.0.0.1"
 	}
 	if cfg.SSLCert == "" || cfg.SSLKey == "" {
 		return cfg, errors.New("TLS required: set SSL_CERT_FILE and SSL_KEY_FILE in the env file")
