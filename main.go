@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -17,35 +19,16 @@ func main() {
 	}
 
 	var tlsConfig *tls.Config
+	var certificates *CertificateHolder
 	if cfg.TLSEnabled {
-		tlsConfig, err = LoadTLSCredentials(cfg.SSLCert, cfg.SSLKey)
+		certificates, err = NewCertificateHolder(cfg.SSLCert, cfg.SSLKey)
 		if err != nil {
 			logf("failed to load TLS credentials: %v", err)
 			os.Exit(1)
 		}
 
-		info, err := checkCertificate(cfg.SSLCert)
-		if err != nil {
-			logf("Certificate validation failed for %s: %v", cfg.SSLCert, err)
-		} else {
-			switch {
-			case info.SelfSigned:
-				logf("Certificate is self-signed: %s", cfg.SSLCert)
-			default:
-				logf("Certificate appears to be CA-signed: %s", cfg.SSLCert)
-			}
-
-			if !info.NotAfter.IsZero() {
-				now := time.Now()
-				if now.After(info.NotAfter) {
-					logf("Warning: Certificate has expired: %s", cfg.SSLCert)
-					logf("Expiration: %s", info.NotAfter.Format(time.RFC3339))
-				} else {
-					days := int(info.NotAfter.Sub(now).Hours() / 24)
-					logf("Certificate valid for %d more days (expires: %s)", days, info.NotAfter.Format(time.RFC3339))
-				}
-			}
-		}
+		tlsConfig = certificates.TLSConfig()
+		logf("TLS active %s", certificates.Status())
 
 		logf("TLS enabled on port %s with cert=%s key=%s", cfg.APIPort, cfg.SSLCert, cfg.SSLKey)
 	} else {
@@ -70,6 +53,21 @@ func main() {
 		TLSConfig:         tlsConfig,
 	}
 
+	reload := make(chan os.Signal, 1)
+	signal.Notify(reload, syscall.SIGHUP)
+	defer signal.Stop(reload)
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case <-reload:
+				certificates.LogReload(logf)
+			case <-done:
+				return
+			}
+		}
+	}()
 	var serveErr error
 	if cfg.TLSEnabled {
 		serveErr = httpServer.ListenAndServeTLS("", "")

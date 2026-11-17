@@ -66,16 +66,11 @@ func loadEnv(path string) error {
 
 // LoadTLSCredentials loads server cert/key into a tls.Config.
 func LoadTLSCredentials(certPath, keyPath string) (*tls.Config, error) {
-	serverCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	holder, err := NewCertificateHolder(certPath, keyPath)
 	if err != nil {
 		return nil, err
 	}
-
-	return &tls.Config{
-		Certificates: []tls.Certificate{serverCert},
-		ClientAuth:   tls.NoClientCert,
-		MinVersion:   tls.VersionTLS12, // reject SSLv3 / TLS 1.0 / TLS 1.1
-	}, nil
+	return holder.TLSConfig(), nil
 }
 
 func checkCertificate(certPath string) (*certInfo, error) {
